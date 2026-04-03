@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Farmacia Ascona – Applicazioni</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: 'DM Sans', sans-serif; background: #F4F2EE; min-height: 100vh; display: flex; flex-direction: column; }
+  .header { background: #2D6A4F; padding: 28px 24px 22px; color: white; text-align: center; }
+  .header-logo { font-size: 13px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.7; margin-bottom: 6px; }
+  .header-title { font-size: 26px; font-weight: 700; letter-spacing: -0.3px; }
+  .header-sub { font-size: 13px; opacity: 0.6; margin-top: 4px; }
+  .grid { padding: 24px 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; flex: 1; max-width: 600px; margin: 0 auto; width: 100%; }
+  .app-card { background: white; border-radius: 18px; padding: 24px 18px 20px; text-decoration: none; color: inherit; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; box-shadow: 0 2px 14px rgba(0,0,0,0.08); border: 1.5px solid #E8E4DC; transition: transform 0.15s, box-shadow 0.15s; cursor: pointer; -webkit-user-select: none; user-select: none; }
+  .app-card:active { transform: scale(0.96); box-shadow: 0 1px 6px rgba(0,0,0,0.10); }
+  .app-icon { width: 58px; height: 58px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 28px; }
+  .icon-green  { background: #D8EDDF; }
+  .icon-blue   { background: #EBF5FB; }
+  .icon-orange { background: #FEF3E2; }
+  .icon-purple { background: #F3E5F5; }
+  .app-name { font-size: 15px; font-weight: 700; color: #1A1916; line-height: 1.25; }
+  .app-desc { font-size: 12px; color: #6B6760; line-height: 1.4; }
+  .footer { text-align: center; padding: 16px 20px 28px; font-size: 11px; color: #9E9A94; letter-spacing: 0.03em; }
+  @media (max-width: 380px) { .grid { grid-template-columns: 1fr; } }
+  @media (min-width: 600px) { .grid { padding: 32px 24px; gap: 18px; } .app-card { padding: 30px 22px 26px; } .app-icon { width: 68px; height: 68px; font-size: 32px; } .app-name { font-size: 17px; } .app-desc { font-size: 13px; } }
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="header-logo">Farmacia Ascona SA</div>
+  <div class="header-title">💊 Applicazioni</div>
+  <div class="header-sub">Via Circonvallazione 6 · CH-6612 Ascona</div>
+</div>
+<div class="grid">
+  <a class="app-card" href="https://danielebiascacaroni.github.io/dosettes-farmacia" target="_blank" rel="noopener">
+    <div class="app-icon icon-green">📦</div>
+    <div>
+      <div class="app-name">Dosettes</div>
+      <div class="app-desc">Preparazione e dispensazione blister settimanali</div>
+    </div>
+  </a>
+  <a class="app-card" href="https://danielebiascacaroni.github.io/QMS-Temperature-Farmacia-Ascona" target="_blank" rel="noopener">
+    <div class="app-icon icon-blue">🌡️</div>
+    <div>
+      <div class="app-name">Controllo Temperature</div>
+      <div class="app-desc">Registrazione mensile QMS temperature frigoriferi</div>
+    </div>
+  </a>
+  <a class="app-card" href="https://danielebiascacaroni.github.io/Consegne-a-domicilio" target="_blank" rel="noopener">
+    <div class="app-icon icon-orange">🚚</div>
+    <div>
+      <div class="app-name">Consegne a Domicilio</div>
+      <div class="app-desc">Gestione consegne farmaci a domicilio</div>
+    </div>
+  </a>
+  <a class="app-card" href="https://danielebiascacaroni.github.io/Dispensazione-Metadone" target="_blank" rel="noopener">
+    <div class="app-icon icon-purple">💊</div>
+    <div>
+      <div class="app-name">Terapie Sostitutive</div>
+      <div class="app-desc">Preparazione, controllo e dispensazione terapie sostitutive</div>
+    </div>
+  </a>
+</div>
+<div class="footer">Farmacia Ascona SA · Uso interno · v1.0</div>
+</body>
+</html>
