@@ -4,7 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Farmacia Ascona – Applicazioni</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
@@ -21,7 +24,17 @@
     --accent-purple: #6A3DAA;
     --text-primary:  #1A1916;
     --text-secondary:#6B6760;
+    --text-tertiary: #9E998F;
     --bg:            #F0EDE7;
+    --border-soft:   #E7E2D8;
+    --danger:        #B94A48;
+    --danger-light:  #FCECEC;
+    --warning:       #B26A00;
+    --warning-light: #FFF2DD;
+    --info:          #1A6FA8;
+    --info-light:    #EAF3FB;
+    --ok:            #607D6E;
+    --ok-light:      #EEF3F0;
     --safe-top:      env(safe-area-inset-top, 0px);
     --safe-bottom:   env(safe-area-inset-bottom, 0px);
   }
@@ -32,9 +45,9 @@
     min-height: 100dvh;
     display: flex;
     flex-direction: column;
+    color: var(--text-primary);
   }
 
-  /* ── HEADER ── */
   .header {
     background: var(--green);
     padding: calc(18px + var(--safe-top)) 24px 18px;
@@ -60,7 +73,8 @@
     flex-shrink: 0;
   }
 
-  .header-text {
+  .header-text,
+  .header-date-block {
     text-align: center;
   }
 
@@ -77,10 +91,6 @@
     color: rgba(255,255,255,0.5);
     margin-top: 2px;
     letter-spacing: 0.02em;
-  }
-
-  .header-date-block {
-    text-align: center;
   }
 
   .header-date {
@@ -100,14 +110,70 @@
     line-height: 1.1;
   }
 
-  /* ── GRID ── */
   .grid-wrapper {
     flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 28px 20px calc(20px + var(--safe-bottom));
+    padding: 24px 20px calc(20px + var(--safe-bottom));
+    position: relative;
   }
+
+  .status-strip {
+    width: 100%;
+    max-width: 720px;
+    background: rgba(255,255,255,0.78);
+    border: 1px solid rgba(0,0,0,0.04);
+    border-radius: 18px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .status-copy { min-width: 0; }
+  .status-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .status-text {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+  }
+
+  .status-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .status-btn {
+    border: none;
+    background: var(--green);
+    color: white;
+    border-radius: 999px;
+    padding: 10px 14px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .status-btn.secondary {
+    background: rgba(45,106,79,0.12);
+    color: var(--accent-green);
+  }
+
+  .status-btn:active { transform: scale(0.97); }
+  .status-btn[hidden] { display: none; }
 
   .grid {
     display: grid;
@@ -117,24 +183,15 @@
     max-width: 720px;
   }
 
-  /* ── CARD ── */
   .app-card {
     background: white;
     border-radius: var(--card-radius);
-    padding: 28px 20px 24px;
-    text-decoration: none;
-    color: inherit;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    gap: 14px;
     box-shadow: 0 2px 16px rgba(0,0,0,0.07);
     position: relative;
     overflow: hidden;
-    transition: transform 0.14s ease, box-shadow 0.14s ease;
-    -webkit-user-select: none;
-    user-select: none;
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
   }
 
   .app-card::before {
@@ -145,25 +202,34 @@
     border-radius: var(--card-radius) var(--card-radius) 0 0;
   }
 
-  .app-card:active {
-    transform: scale(0.965);
-    box-shadow: 0 1px 8px rgba(0,0,0,0.10);
+  .card-green::before  { background: var(--accent-green); }
+  .card-blue::before   { background: var(--accent-blue); }
+  .card-orange::before { background: var(--accent-orange); }
+  .card-purple::before { background: var(--accent-purple); }
+
+  .app-launch {
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 14px;
+    padding: 28px 20px 22px;
+    transition: transform 0.14s ease;
+    -webkit-user-select: none;
+    user-select: none;
   }
 
+  .app-launch:active { transform: scale(0.97); }
+
   .card-green  .app-icon-wrap { background: var(--green-light); }
-  .card-green::before         { background: var(--accent-green); }
   .card-green  .app-icon svg  { stroke: var(--accent-green); }
-
   .card-blue   .app-icon-wrap { background: var(--blue-light); }
-  .card-blue::before          { background: var(--accent-blue); }
   .card-blue   .app-icon svg  { stroke: var(--accent-blue); }
-
   .card-orange .app-icon-wrap { background: var(--orange-light); }
-  .card-orange::before        { background: var(--accent-orange); }
   .card-orange .app-icon svg  { stroke: var(--accent-orange); }
-
   .card-purple .app-icon-wrap { background: var(--purple-light); }
-  .card-purple::before        { background: var(--accent-purple); }
   .card-purple .app-icon svg  { stroke: var(--accent-purple); }
 
   .app-icon-wrap {
@@ -199,7 +265,277 @@
     margin-top: -6px;
   }
 
-  /* ── FOOTER ── */
+  .task-list {
+    padding: 0 14px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 372px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .task-item,
+  .task-empty {
+    border-radius: 16px;
+    border: 1px solid var(--border-soft);
+    background: #FBFAF7;
+  }
+
+  .task-item {
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
+    padding: 11px 12px;
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.14s ease, border-color 0.14s ease, background 0.14s ease;
+  }
+
+  .task-item:active { transform: scale(0.985); }
+  .task-item:hover { border-color: #D8D0C2; }
+  .task-item.is-done { background: #F5F4F1; border-color: #E4DFD5; }
+
+  .task-day {
+    min-width: 78px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    border-right: 1px solid #ECE6DA;
+    padding-right: 10px;
+  }
+
+  .task-day-label {
+    font-size: 17px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+
+  .task-date-label {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    margin-top: 6px;
+    text-transform: capitalize;
+  }
+
+  .task-body { min-width: 0; flex: 1; }
+  .task-patient { font-size: 14px; font-weight: 700; line-height: 1.2; }
+  .task-meta { font-size: 12px; color: var(--text-secondary); margin-top: 4px; line-height: 1.35; }
+
+  .task-status {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 5px 9px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-top: 8px;
+  }
+
+  .status-prepare { background: var(--warning-light); color: var(--warning); }
+  .status-check   { background: var(--info-light); color: var(--info); }
+  .status-deliver { background: var(--green-light); color: var(--accent-green); }
+  .status-done    { background: var(--ok-light); color: var(--ok); }
+  .status-problem { background: var(--danger-light); color: var(--danger); }
+  .status-muted   { background: #F1EFEA; color: #8A857B; }
+
+  .task-empty {
+    padding: 12px 14px;
+    font-size: 12px;
+    color: var(--text-tertiary);
+    line-height: 1.45;
+  }
+
+  .login-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(240,237,231,0.94);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 1000;
+  }
+
+  .login-panel {
+    width: 100%;
+    max-width: 520px;
+    background: white;
+    border-radius: 28px;
+    padding: 22px 20px 20px;
+    box-shadow: 0 18px 48px rgba(0,0,0,0.12);
+    border: 1px solid rgba(0,0,0,0.04);
+  }
+
+  .login-kicker {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+  }
+
+  .login-title {
+    font-size: 24px;
+    font-weight: 800;
+    margin-top: 6px;
+    letter-spacing: -0.03em;
+  }
+
+  .login-sub {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-top: 6px;
+    line-height: 1.45;
+  }
+
+  .login-section {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid #EEE8DD;
+  }
+
+  .login-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .op-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .op-card {
+    border: 1.5px solid #DED7CA;
+    background: #FCFBF8;
+    border-radius: 16px;
+    padding: 14px 12px;
+    cursor: pointer;
+    transition: all 0.14s ease;
+    text-align: left;
+  }
+
+  .op-card.selected,
+  .op-card:active {
+    border-color: var(--accent-green);
+    background: var(--green-light);
+    transform: scale(0.985);
+  }
+
+  .op-sigla {
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--accent-green);
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .op-nome {
+    font-size: 15px;
+    font-weight: 700;
+    margin-top: 4px;
+  }
+
+  .op-ruolo {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+  }
+
+  .pin-shell {
+    display: none;
+    margin-top: 14px;
+  }
+
+  .pin-shell.visible { display: block; }
+  .pin-selected {
+    text-align: center;
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
+
+  .pin-display {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin: 12px 0 8px;
+  }
+
+  .pin-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid #CFC8BA;
+    background: white;
+    transition: all 0.2s;
+  }
+
+  .pin-dot.filled {
+    background: var(--accent-green);
+    border-color: var(--accent-green);
+  }
+
+  .pin-pad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    max-width: 240px;
+    margin: 0 auto;
+  }
+
+  .pin-btn {
+    background: white;
+    border: 2px solid #D8D0C2;
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    font-size: 19px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.12s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+  }
+
+  .pin-btn:active {
+    background: var(--green-light);
+    border-color: var(--accent-green);
+    transform: scale(0.93);
+  }
+
+  .pin-btn.empty { visibility: hidden; }
+  .pin-btn.del { font-size: 15px; color: var(--text-secondary); }
+
+  .pin-error,
+  .login-error {
+    color: var(--danger);
+    font-size: 13px;
+    text-align: center;
+    margin-top: 10px;
+    min-height: 18px;
+  }
+
+  .login-foot {
+    margin-top: 12px;
+    font-size: 12px;
+    color: var(--text-tertiary);
+    text-align: center;
+    line-height: 1.45;
+  }
+
   .footer {
     text-align: center;
     padding: 12px 20px calc(16px + var(--safe-bottom));
@@ -208,17 +544,15 @@
     letter-spacing: 0.04em;
   }
 
-  /* ── RESPONSIVE ── */
-
-  /* iPhone piccolo: 1 colonna */
   @media (max-width: 390px) {
     .header { gap: 12px; }
     .header-logo { height: 40px; }
     .header-time { font-size: 20px; }
     .grid { grid-template-columns: 1fr; max-width: 340px; }
+    .status-strip { max-width: 340px; flex-direction: column; align-items: stretch; }
+    .op-grid { grid-template-columns: 1fr; }
   }
 
-  /* iPad Mini portrait (768px) e iPad (820px+) */
   @media (min-width: 700px) {
     .header { padding: calc(22px + var(--safe-top)) 40px 22px; gap: 24px; }
     .header-logo { height: 58px; }
@@ -227,25 +561,28 @@
     .header-sub { font-size: 12px; }
     .header-time { font-size: 28px; }
     .header-date { font-size: 13px; }
+    .status-strip { max-width: 720px; }
     .grid { gap: 20px; max-width: 720px; }
-    .app-card { padding: 32px 24px 28px; gap: 16px; }
+    .app-launch { padding: 32px 24px 24px; gap: 16px; }
     .app-icon-wrap { width: 80px; height: 80px; border-radius: 20px; }
     .app-icon svg { width: 40px; height: 40px; }
     .app-name { font-size: 17px; }
     .app-desc { font-size: 13px; }
   }
 
-  /* Landscape su iPad Mini / iPad: 4 colonne */
   @media (min-width: 900px) and (orientation: landscape) {
-    .grid { grid-template-columns: repeat(4, 1fr); max-width: 960px; }
-    .app-card { padding: 28px 16px 24px; }
+    .grid { grid-template-columns: repeat(4, 1fr); max-width: 1180px; }
+    .status-strip { max-width: 1180px; }
+    .app-launch { padding: 28px 16px 22px; }
     .app-name { font-size: 15px; }
     .app-desc { font-size: 12px; }
+    .task-day { min-width: 68px; }
+    .task-day-label { font-size: 15px; }
   }
 
-  /* iPad Pro e schermi più grandi */
   @media (min-width: 1024px) {
-    .grid { gap: 24px; max-width: 840px; }
+    .grid { gap: 24px; max-width: 1200px; }
+    .status-strip { max-width: 1200px; }
     .app-icon-wrap { width: 88px; height: 88px; border-radius: 22px; }
     .app-icon svg { width: 44px; height: 44px; }
     .app-name { font-size: 18px; }
@@ -269,99 +606,777 @@
 </div>
 
 <div class="grid-wrapper">
+  <div class="status-strip">
+    <div class="status-copy">
+      <div class="status-title">Task operativi</div>
+      <div class="status-text" id="sync-status">Avvio launcher in corso...</div>
+    </div>
+    <div class="status-actions">
+      <button class="status-btn" type="button" id="refresh-btn">Aggiorna</button>
+      <button class="status-btn secondary" type="button" id="logout-btn" hidden>Esci</button>
+    </div>
+  </div>
+
   <div class="grid">
-
-    <a class="app-card card-green" href="https://danielebiascacaroni.github.io/dosettes-farmacia" target="_blank" rel="noopener">
-      <div class="app-icon-wrap">
-        <div class="app-icon">
-          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <rect x="3" y="6" width="18" height="12" rx="3"/>
-            <circle cx="8"  cy="9.5" r="1.5"/>
-            <circle cx="12" cy="9.5" r="1.5"/>
-            <circle cx="16" cy="9.5" r="1.5"/>
-            <circle cx="8"  cy="14.5" r="1.5"/>
-            <circle cx="12" cy="14.5" r="1.5"/>
-            <circle cx="16" cy="14.5" r="1.5"/>
-          </svg>
+    <article class="app-card card-green">
+      <a class="app-launch" href="https://danielebiascacaroni.github.io/dosettes-farmacia" target="_blank" rel="noopener">
+        <div class="app-icon-wrap">
+          <div class="app-icon">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <rect x="3" y="6" width="18" height="12" rx="3"/>
+              <circle cx="8" cy="9.5" r="1.5"/>
+              <circle cx="12" cy="9.5" r="1.5"/>
+              <circle cx="16" cy="9.5" r="1.5"/>
+              <circle cx="8" cy="14.5" r="1.5"/>
+              <circle cx="12" cy="14.5" r="1.5"/>
+              <circle cx="16" cy="14.5" r="1.5"/>
+            </svg>
+          </div>
         </div>
+        <div class="app-name">Dosettes</div>
+        <div class="app-desc">Preparazione e dispensazione blister settimanali</div>
+      </a>
+      <div class="task-list" id="tasks-dosettes">
+        <div class="task-empty">Accesso richiesto per leggere i task dosettes.</div>
       </div>
-      <div class="app-name">Dosettes</div>
-      <div class="app-desc">Preparazione e dispensazione blister settimanali</div>
-    </a>
+    </article>
 
-    <a class="app-card card-blue" href="https://danielebiascacaroni.github.io/QMS-Temperature-Farmacia-Ascona" target="_blank" rel="noopener">
-      <div class="app-icon-wrap">
-        <div class="app-icon">
-          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/>
-            <line x1="11.5" y1="6"  x2="13" y2="6"/>
-            <line x1="11.5" y1="9"  x2="13" y2="9"/>
-            <line x1="11.5" y1="12" x2="13" y2="12"/>
-          </svg>
+    <article class="app-card card-blue">
+      <a class="app-launch" href="https://danielebiascacaroni.github.io/QMS-Temperature-Farmacia-Ascona" target="_blank" rel="noopener">
+        <div class="app-icon-wrap">
+          <div class="app-icon">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/>
+              <line x1="11.5" y1="6" x2="13" y2="6"/>
+              <line x1="11.5" y1="9" x2="13" y2="9"/>
+              <line x1="11.5" y1="12" x2="13" y2="12"/>
+            </svg>
+          </div>
         </div>
+        <div class="app-name">Controllo Temperature</div>
+        <div class="app-desc">Registrazione mensile QMS temperature frigoriferi</div>
+      </a>
+      <div class="task-list" id="tasks-temperature">
+        <div class="task-empty">Accesso richiesto per leggere il task mensile.</div>
       </div>
-      <div class="app-name">Controllo Temperature</div>
-      <div class="app-desc">Registrazione mensile QMS temperature frigoriferi</div>
-    </a>
+    </article>
 
-    <a class="app-card card-orange" href="https://danielebiascacaroni.github.io/Consegne-a-domicilio" target="_blank" rel="noopener">
-      <div class="app-icon-wrap">
-        <div class="app-icon">
-          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <rect x="1" y="3" width="15" height="13" rx="1.5"/>
-            <path d="M16 8h4l3 4v4h-7V8z"/>
-            <circle cx="5.5"  cy="18.5" r="2.5"/>
-            <circle cx="18.5" cy="18.5" r="2.5"/>
-            <line x1="8" y1="18.5" x2="16" y2="18.5"/>
-          </svg>
+    <article class="app-card card-orange">
+      <a class="app-launch" href="https://danielebiascacaroni.github.io/Consegne-a-domicilio" target="_blank" rel="noopener">
+        <div class="app-icon-wrap">
+          <div class="app-icon">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <rect x="1" y="3" width="15" height="13" rx="1.5"/>
+              <path d="M16 8h4l3 4v4h-7V8z"/>
+              <circle cx="5.5" cy="18.5" r="2.5"/>
+              <circle cx="18.5" cy="18.5" r="2.5"/>
+              <line x1="8" y1="18.5" x2="16" y2="18.5"/>
+            </svg>
+          </div>
         </div>
+        <div class="app-name">Consegne a Domicilio</div>
+        <div class="app-desc">Gestione consegne farmaci a domicilio</div>
+      </a>
+      <div class="task-list" id="tasks-consegne">
+        <div class="task-empty">Accesso richiesto per leggere le consegne del giorno.</div>
       </div>
-      <div class="app-name">Consegne a Domicilio</div>
-      <div class="app-desc">Gestione consegne farmaci a domicilio</div>
-    </a>
+    </article>
 
-    <a class="app-card card-purple" href="https://danielebiascacaroni.github.io/Dispensazione-Metadone" target="_blank" rel="noopener">
-      <div class="app-icon-wrap">
-        <div class="app-icon">
-          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path d="M18 2l4 4"/>
-            <path d="m17.5 6.5-1 1"/>
-            <path d="m6 20 1.5-1.5"/>
-            <path d="M8.5 22 2 15.5l9-9 6.5 6.5z"/>
-            <path d="m11 13-2 2"/>
-            <path d="m13 11-2 2"/>
-            <path d="m15 9-2 2"/>
-            <path d="M6.5 21.5 2.5 17.5"/>
-          </svg>
+    <article class="app-card card-purple">
+      <a class="app-launch" href="https://danielebiascacaroni.github.io/Dispensazione-Metadone" target="_blank" rel="noopener">
+        <div class="app-icon-wrap">
+          <div class="app-icon">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M18 2l4 4"/>
+              <path d="m17.5 6.5-1 1"/>
+              <path d="m6 20 1.5-1.5"/>
+              <path d="M8.5 22 2 15.5l9-9 6.5 6.5z"/>
+              <path d="m11 13-2 2"/>
+              <path d="m13 11-2 2"/>
+              <path d="m15 9-2 2"/>
+              <path d="M6.5 21.5 2.5 17.5"/>
+            </svg>
+          </div>
         </div>
+        <div class="app-name">Terapie Sostitutive</div>
+        <div class="app-desc">Preparazione, controllo e dispensazione terapie sostitutive</div>
+      </a>
+      <div class="task-list" id="tasks-metadone">
+        <div class="task-empty">Accesso richiesto per leggere i task terapie sostitutive.</div>
       </div>
-      <div class="app-name">Terapie Sostitutive</div>
-      <div class="app-desc">Preparazione, controllo e dispensazione terapie sostitutive</div>
-    </a>
-
+    </article>
   </div>
 </div>
 
-<div class="footer">Farmacia Ascona SA · Uso interno · v4.0</div>
+<div class="login-overlay" id="login-overlay">
+  <div class="login-panel">
+    <div class="login-kicker">Accesso operatore</div>
+    <div class="login-title">Launcher operativo</div>
+    <div class="login-sub" id="login-sub">Carico gli operatori abilitati e preparo l’accesso ai task reali.</div>
+
+    <div class="login-section">
+      <div class="login-label">Seleziona operatore</div>
+      <div class="op-grid" id="op-grid">
+        <div class="task-empty">Caricamento operatori...</div>
+      </div>
+      <div class="pin-shell" id="pin-shell">
+        <div class="pin-selected" id="pin-selected">Operatore selezionato</div>
+        <div class="pin-display">
+          <div class="pin-dot" id="pin-dot-0"></div>
+          <div class="pin-dot" id="pin-dot-1"></div>
+          <div class="pin-dot" id="pin-dot-2"></div>
+          <div class="pin-dot" id="pin-dot-3"></div>
+        </div>
+        <div class="pin-pad">
+          <button class="pin-btn" type="button" onclick="launcherPinPress(1)">1</button>
+          <button class="pin-btn" type="button" onclick="launcherPinPress(2)">2</button>
+          <button class="pin-btn" type="button" onclick="launcherPinPress(3)">3</button>
+          <button class="pin-btn" type="button" onclick="launcherPinPress(4)">4</button>
+          <button class="pin-btn" type="button" onclick="launcherPinPress(5)">5</button>
+          <button class="pin-btn" type="button" onclick="launcherPinPress(6)">6</button>
+          <button class="pin-btn" type="button" onclick="launcherPinPress(7)">7</button>
+          <button class="pin-btn" type="button" onclick="launcherPinPress(8)">8</button>
+          <button class="pin-btn" type="button" onclick="launcherPinPress(9)">9</button>
+          <button class="pin-btn empty" type="button">0</button>
+          <button class="pin-btn" type="button" onclick="launcherPinPress(0)">0</button>
+          <button class="pin-btn del" type="button" onclick="launcherPinDel()">⌫</button>
+        </div>
+        <div class="pin-error" id="pin-error"></div>
+      </div>
+      <div class="login-error" id="login-error"></div>
+      <div class="login-foot">Il launcher usa la stessa autenticazione Firebase delle altre webapp.</div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">Farmacia Ascona SA · Uso interno · v6.0</div>
 
 <script>
   (function () {
     var giorni = ['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
-    var mesi   = ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
-    var elDate = document.getElementById('hdr-date');
-    var elTime = document.getElementById('hdr-time');
+    var mesi = ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
+    var weekdayMap = {
+      lunedi: 1, lunedì: 1,
+      martedi: 2, martedì: 2,
+      mercoledi: 3, mercoledì: 3,
+      giovedi: 4, giovedì: 4,
+      venerdi: 5, venerdì: 5,
+      sabato: 6, domenica: 0
+    };
+    var appUrls = {
+      dosettes: 'https://danielebiascacaroni.github.io/dosettes-farmacia',
+      metadone: 'https://danielebiascacaroni.github.io/Dispensazione-Metadone',
+      consegne: 'https://danielebiascacaroni.github.io/Consegne-a-domicilio',
+      temperature: 'https://danielebiascacaroni.github.io/QMS-Temperature-Farmacia-Ascona'
+    };
+    var firebaseConfig = {
+      apiKey: 'AIzaSyD9McwYWAkmF7MY3twDfCu0ECU3WujYArc',
+      authDomain: 'dosettes-farmacia.firebaseapp.com',
+      projectId: 'dosettes-farmacia',
+      storageBucket: 'dosettes-farmacia.firebasestorage.app',
+      messagingSenderId: '628957359401',
+      appId: '1:628957359401:web:7061c0a375b82288e45b38'
+    };
+
+    var state = {
+      firestoreDB: null,
+      operatori: [],
+      selectedOperator: null,
+      pinDigits: '',
+      authenticatedOperator: null,
+      bootstrapped: false,
+      loadingTasks: false
+    };
+
+    var syncStatusEl = document.getElementById('sync-status');
+    var refreshBtn = document.getElementById('refresh-btn');
+    var logoutBtn = document.getElementById('logout-btn');
+    var loginOverlay = document.getElementById('login-overlay');
+    var loginSub = document.getElementById('login-sub');
+    var loginError = document.getElementById('login-error');
+    var pinError = document.getElementById('pin-error');
+    var pinShell = document.getElementById('pin-shell');
+    var pinSelected = document.getElementById('pin-selected');
+    var opGrid = document.getElementById('op-grid');
 
     function pad(n) { return n < 10 ? '0' + n : n; }
+    function safeArray(value) { return Array.isArray(value) ? value : []; }
 
-    function aggiorna() {
-      var now  = new Date();
-      elDate.textContent = giorni[now.getDay()] + ', ' + now.getDate() + ' ' + mesi[now.getMonth()];
-      elTime.textContent = pad(now.getHours()) + ':' + pad(now.getMinutes());
+    function escapeHtml(value) {
+      return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
     }
 
-    aggiorna();
+    function escapeAttr(value) { return escapeHtml(value); }
+
+    function normalizeText(value) {
+      return String(value || '')
+        .toLowerCase()
+        .replace(/[àáâä]/g, 'a')
+        .replace(/[èéêë]/g, 'e')
+        .replace(/[ìíîï]/g, 'i')
+        .replace(/[òóôö]/g, 'o')
+        .replace(/[ùúûü]/g, 'u')
+        .trim();
+    }
+
+    function aggiornaOrologio() {
+      var now = new Date();
+      document.getElementById('hdr-date').textContent = giorni[now.getDay()] + ', ' + now.getDate() + ' ' + mesi[now.getMonth()];
+      document.getElementById('hdr-time').textContent = pad(now.getHours()) + ':' + pad(now.getMinutes());
+    }
+
+    function toDate(value) {
+      if (!value) return null;
+      if (value instanceof Date) return value;
+      if (value && typeof value.toDate === 'function') return value.toDate();
+      if (typeof value === 'string') {
+        var iso = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (iso) return new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]), 12, 0, 0, 0);
+        var parsed = new Date(value);
+        return isNaN(parsed.getTime()) ? null : parsed;
+      }
+      return null;
+    }
+
+    function toDateKey(value) {
+      var date = toDate(value);
+      if (!date) return '';
+      return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate());
+    }
+
+    function getWeekStart(date) {
+      var copy = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0, 0);
+      var day = copy.getDay();
+      var diff = day === 0 ? -6 : 1 - day;
+      copy.setDate(copy.getDate() + diff);
+      return copy;
+    }
+
+    function getDateForWeekday(weekStart, weekdayName) {
+      var idx = weekdayMap[normalizeText(weekdayName)];
+      if (typeof idx !== 'number') return null;
+      var mondayBased = idx === 0 ? 6 : idx - 1;
+      var result = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate(), 12, 0, 0, 0);
+      result.setDate(result.getDate() + mondayBased);
+      return result;
+    }
+
+    function formatWeekday(date) { return giorni[date.getDay()]; }
+    function formatMonthYear(date) { return mesi[date.getMonth()] + ' ' + date.getFullYear(); }
+    function formatPatientName(cognome, nome) { return [cognome || '', nome || ''].join(' ').replace(/\s+/g, ' ').trim(); }
+    function formatTaskDateShort(date) { return pad(date.getDate()) + '-' + pad(date.getMonth() + 1) + '-' + date.getFullYear(); }
+
+    function buildTaskUrl(baseUrl, params) {
+      var query = Object.keys(params || {})
+        .filter(function (key) { return params[key] !== undefined && params[key] !== null && params[key] !== ''; })
+        .map(function (key) { return encodeURIComponent(key) + '=' + encodeURIComponent(String(params[key])); })
+        .join('&');
+      return query ? baseUrl + '?' + query : baseUrl;
+    }
+
+    function latestByDate(items, getDateValue) {
+      return items.slice().sort(function (a, b) {
+        return String(toDateKey(getDateValue(b)) || '').localeCompare(String(toDateKey(getDateValue(a)) || ''));
+      })[0] || null;
+    }
+
+    function isDateWithinRange(targetKey, start, end) {
+      if (!targetKey || !start || !end) return false;
+      var startKey = toDateKey(start);
+      var endKey = toDateKey(end);
+      return !!startKey && !!endKey && targetKey >= startKey && targetKey <= endKey;
+    }
+
+    function mapDosetteStatus(prep) {
+      var stato = String(prep && prep.stato || '').toLowerCase();
+      if (stato === 'consegnata') return { className: 'status-done', label: 'eseguito', done: true };
+      if (stato === 'da_dispensare') return { className: 'status-deliver', label: 'da consegnare', done: false };
+      if (stato === 'da_controllare' || stato === 'preparata' || stato === 'controllata') return { className: 'status-check', label: 'da controllare', done: false };
+      return { className: 'status-prepare', label: 'da preparare', done: false };
+    }
+
+    function mapMetadoneStatus(protocollo) {
+      var stato = String(protocollo && protocollo.stato || '').toLowerCase();
+      if (stato === 'dispensato') return { className: 'status-done', label: 'eseguito', done: true };
+      if (stato === 'controllato') return { className: 'status-deliver', label: 'da consegnare', done: false };
+      if (stato === 'preparato') return { className: 'status-check', label: 'da controllare', done: false };
+      if (stato === 'annullato') return { className: 'status-muted', label: 'annullato', done: true };
+      return { className: 'status-prepare', label: 'da preparare', done: false };
+    }
+
+    function mapConsegnaStatus(record) {
+      var stato = String(record && record.stato || '').toUpperCase();
+      if (stato === 'CONSEGNA VERIFICATA') return { className: 'status-done', label: 'eseguita', done: true };
+      if (stato === 'IN CONSEGNA') return { className: 'status-deliver', label: 'in consegna', done: false };
+      if (stato === 'PROBLEMA SEGNALATO') return { className: 'status-problem', label: 'problema', done: false };
+      if (stato === 'CONSEGNA CANCELLATA') return { className: 'status-muted', label: 'annullata', done: true };
+      if (stato === 'PRONTA PER CONTROLLO') return { className: 'status-check', label: 'da controllare', done: false };
+      return { className: 'status-prepare', label: 'da preparare', done: false };
+    }
+
+    function sortTasks(tasks) {
+      var statusPriority = {
+        'da consegnare': 0,
+        'in consegna': 1,
+        'da controllare': 2,
+        'da registrare': 3,
+        'da preparare': 4,
+        'problema': 5,
+        'eseguito': 6,
+        'eseguita': 6,
+        'annullato': 7,
+        'annullata': 7
+      };
+      return tasks.slice().sort(function (a, b) {
+        var pa = statusPriority[a.status && a.status.label] !== undefined ? statusPriority[a.status.label] : 99;
+        var pb = statusPriority[b.status && b.status.label] !== undefined ? statusPriority[b.status.label] : 99;
+        if (pa !== pb) return pa - pb;
+        if (a.status.done !== b.status.done) return a.status.done ? 1 : -1;
+        if (a.dayOrder !== b.dayOrder) return a.dayOrder - b.dayOrder;
+        return String(a.patient || '').localeCompare(String(b.patient || ''));
+      });
+    }
+
+    function renderTaskItem(task) {
+      var classes = ['task-item'];
+      if (task.status && task.status.done) classes.push('is-done');
+      return '<a class="' + classes.join(' ') + '" href="' + escapeAttr(task.url) + '" target="_blank" rel="noopener">'
+        + '<div class="task-day">'
+        + '<div class="task-day-label">' + escapeHtml(task.dayLabel) + '</div>'
+        + '<div class="task-date-label">' + escapeHtml(task.dateLabel) + '</div>'
+        + '</div>'
+        + '<div class="task-body">'
+        + '<div class="task-patient">' + escapeHtml(task.patient) + '</div>'
+        + '<div class="task-meta">' + escapeHtml(task.meta || '') + '</div>'
+        + '<span class="task-status ' + escapeAttr(task.status.className) + '">' + escapeHtml(task.status.label) + '</span>'
+        + '</div>'
+        + '</a>';
+    }
+
+    function renderTaskList(containerId, tasks, emptyMessage) {
+      var container = document.getElementById(containerId);
+      if (!tasks || !tasks.length) {
+        container.innerHTML = '<div class="task-empty">' + escapeHtml(emptyMessage) + '</div>';
+        return;
+      }
+      container.innerHTML = tasks.map(renderTaskItem).join('');
+    }
+
+    function updateSummary(payload, failed) {
+      var all = []
+        .concat(payload.dosettes || [])
+        .concat(payload.metadone || [])
+        .concat(payload.temperature || [])
+        .concat(payload.consegne || []);
+      var pending = all.filter(function (task) { return task.status && !task.status.done; }).length;
+      var done = all.filter(function (task) { return task.status && task.status.done; }).length;
+
+      if (failed && failed.length) {
+        syncStatusEl.textContent = 'Lettura parziale completata. Collezioni non accessibili: ' + failed.join(', ');
+        return;
+      }
+
+      if (pending) {
+        syncStatusEl.textContent = pending + ' task ancora da svolgere · ' + done + ' già registrati';
+      } else {
+        syncStatusEl.textContent = 'Tutti i task visibili risultano registrati';
+      }
+    }
+
+    function buildDosetteTasks(pazienti) {
+      var today = new Date();
+      var weekStart = getWeekStart(today);
+      return safeArray(pazienti).filter(function (patient) {
+        return !patient.stato || patient.stato === 'attivo';
+      }).map(function (patient) {
+        var taskDate = getDateForWeekday(weekStart, patient.giorno);
+        if (!taskDate) return null;
+        var taskKey = toDateKey(taskDate);
+        var related = safeArray(patient.preparazioni).filter(function (prep) {
+          return isDateWithinRange(taskKey, prep.periodoDal, prep.periodoAl)
+            || taskKey === toDateKey(prep.data)
+            || isDateWithinRange(taskKey, prep.data, prep.data);
+        });
+        var prep = latestByDate(related, function (item) { return item.periodoDal || item.data; });
+        var status = mapDosetteStatus(prep);
+        return {
+          dayOrder: taskDate.getDay() === 0 ? 7 : taskDate.getDay(),
+          dayLabel: formatWeekday(taskDate),
+          dateLabel: formatTaskDateShort(taskDate),
+          patient: formatPatientName(patient.cognome, patient.nome) || 'Paziente',
+          meta: prep && prep.periodo ? prep.periodo : 'Apri Dosettes e completa il flusso',
+          status: status,
+          url: buildTaskUrl(appUrls.dosettes, { from: 'launcher', patient: patient.id || '', giorno: patient.giorno || '', task: status.label })
+        };
+      }).filter(Boolean);
+    }
+
+    function buildMetadoneTasks(pazienti, protocolli) {
+      var today = new Date();
+      var weekStart = getWeekStart(today);
+      return safeArray(pazienti).filter(function (patient) {
+        return !patient.statoTerapia || patient.statoTerapia === 'attiva';
+      }).map(function (patient) {
+        var taskDate = getDateForWeekday(weekStart, patient.giornoConsegna);
+        if (!taskDate) return null;
+        var taskKey = toDateKey(taskDate);
+        var related = safeArray(protocolli).filter(function (protocollo) {
+          if (protocollo.pazienteId !== patient.id) return false;
+          if (String(protocollo.stato || '').toLowerCase() === 'annullato') return false;
+          if (safeArray(protocollo.giorniCoperti).indexOf(taskKey) !== -1) return true;
+          return isDateWithinRange(taskKey, protocollo.periodoDal, protocollo.periodoAl);
+        });
+        var protocollo = latestByDate(related, function (item) { return item.periodoDal || item.dataPreprazione; });
+        var status = mapMetadoneStatus(protocollo);
+        return {
+          dayOrder: taskDate.getDay() === 0 ? 7 : taskDate.getDay(),
+          dayLabel: formatWeekday(taskDate),
+          dateLabel: formatTaskDateShort(taskDate),
+          patient: formatPatientName(patient.cognome, patient.nome) || 'Paziente',
+          meta: protocollo && protocollo.periodoDal && protocollo.periodoAl ? protocollo.periodoDal + ' → ' + protocollo.periodoAl : 'Apri Terapie Sostitutive e completa il flusso',
+          status: status,
+          url: buildTaskUrl(appUrls.metadone, { from: 'launcher', patient: patient.id || '', giorno: patient.giornoConsegna || '', task: status.label })
+        };
+      }).filter(Boolean);
+    }
+
+    function buildTemperatureTasks(records) {
+      var today = new Date();
+      var currentMonthRecords = safeArray(records).filter(function (record) {
+        var date = toDate(record.firmaTimestamp || record.createdAt || record.ts || record.date);
+        return !!date && date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear();
+      });
+      var done = currentMonthRecords.length > 0;
+      return [{
+        dayOrder: 0,
+        dayLabel: mesi[today.getMonth()].charAt(0).toUpperCase() + mesi[today.getMonth()].slice(1),
+        dateLabel: String(today.getFullYear()),
+        patient: 'Registrazione mensile frigoriferi',
+        meta: done ? 'Verifica del mese già presente nello storico' : 'Apri la webapp e registra la verifica del mese',
+        status: done ? { className: 'status-done', label: 'eseguito', done: true } : { className: 'status-check', label: 'da registrare', done: false },
+        url: buildTaskUrl(appUrls.temperature, { from: 'launcher', mese: today.getMonth() + 1, anno: today.getFullYear() })
+      }];
+    }
+
+    function buildConsegneTasks(records) {
+      var todayKey = toDateKey(new Date());
+      return safeArray(records).filter(function (record) {
+        var prepKey = toDateKey(record.tsPreparazione || record.preparazioneAt || record.createdAt);
+        var verificaKey = toDateKey(record.verificaEsitoAt);
+        return prepKey === todayKey || verificaKey === todayKey;
+      }).sort(function (a, b) {
+        return String(toDateKey(b.tsPreparazione || b.createdAt) || '').localeCompare(String(toDateKey(a.tsPreparazione || a.createdAt) || ''));
+      }).map(function (record) {
+        var status = mapConsegnaStatus(record);
+        var patientName = record.paziente && record.paziente.nome ? record.paziente.nome : 'Consegna senza paziente';
+        var meta = 'Consegna del giorno';
+        if (record.consegnante && record.consegnante.nome) meta += ' · ' + record.consegnante.nome;
+        return {
+          dayOrder: 0,
+          dayLabel: formatWeekday(new Date()),
+          dateLabel: formatMonthYear(new Date()),
+          patient: patientName,
+          meta: meta,
+          status: status,
+          url: buildTaskUrl(appUrls.consegne, { from: 'launcher', delivery: record._id || '', task: status.label })
+        };
+      });
+    }
+
+    function renderOperatorGrid() {
+      if (!state.operatori.length) {
+        opGrid.innerHTML = '<div class="task-empty">Nessun operatore disponibile.</div>';
+        return;
+      }
+      opGrid.innerHTML = state.operatori.map(function (op) {
+        var classes = ['op-card'];
+        if (state.selectedOperator && state.selectedOperator.id === op.id) classes.push('selected');
+        return '<button class="' + classes.join(' ') + '" type="button" onclick="launcherSelectOperator(\'' + escapeAttr(op.id) + '\')">'
+          + '<div class="op-sigla">' + escapeHtml(op.id) + '</div>'
+          + '<div class="op-nome">' + escapeHtml(op.nome || op.id) + '</div>'
+          + '<div class="op-ruolo">' + escapeHtml(op.ruolo || '') + '</div>'
+          + '</button>';
+      }).join('');
+    }
+
+    function updatePinDots() {
+      for (var i = 0; i < 4; i++) {
+        var dot = document.getElementById('pin-dot-' + i);
+        dot.classList.toggle('filled', i < state.pinDigits.length);
+      }
+    }
+
+    function resetPin() {
+      state.pinDigits = '';
+      updatePinDots();
+    }
+
+    function showLoggedOutState(message) {
+      loginOverlay.style.display = 'flex';
+      logoutBtn.hidden = true;
+      if (message) syncStatusEl.textContent = message;
+      renderTaskList('tasks-dosettes', [], 'Accesso richiesto per leggere i task dosettes.');
+      renderTaskList('tasks-metadone', [], 'Accesso richiesto per leggere i task terapie sostitutive.');
+      renderTaskList('tasks-temperature', [], 'Accesso richiesto per leggere il task mensile.');
+      renderTaskList('tasks-consegne', [], 'Accesso richiesto per leggere le consegne del giorno.');
+    }
+
+    function showLoggedInState() {
+      loginOverlay.style.display = 'none';
+      logoutBtn.hidden = false;
+      if (state.authenticatedOperator) {
+        syncStatusEl.textContent = 'Sessione attiva · ' + state.authenticatedOperator.nome;
+      }
+    }
+
+    function setLoginMessage(message, isError) {
+      if (isError) {
+        loginError.textContent = message || '';
+      } else {
+        loginError.textContent = '';
+        loginSub.textContent = message || 'Carico gli operatori abilitati e preparo l’accesso ai task reali.';
+      }
+    }
+
+    function loadCollection(name) {
+      return state.firestoreDB.collection(name).get().then(function (snapshot) {
+        var rows = [];
+        snapshot.forEach(function (doc) {
+          var data = doc.data() || {};
+          data._id = doc.id;
+          rows.push(data);
+        });
+        return { ok: true, name: name, rows: rows };
+      }).catch(function (error) {
+        console.warn('Collection read failed:', name, error && error.code || error);
+        return { ok: false, name: name, rows: [], error: error };
+      });
+    }
+
+    function loadAllData() {
+      if (!state.firestoreDB || state.loadingTasks || !state.authenticatedOperator) return;
+      state.loadingTasks = true;
+      syncStatusEl.textContent = 'Aggiornamento task in corso...';
+      refreshBtn.disabled = true;
+
+      Promise.all([
+        loadCollection('pazienti'),
+        loadCollection('pazienti_metadone'),
+        loadCollection('protocolli_metadone'),
+        loadCollection('qms_consegne'),
+        loadCollection('qms_temperature')
+      ]).then(function (results) {
+        var failed = results.filter(function (item) { return !item.ok; }).map(function (item) { return item.name; });
+        var payload = {
+          dosettes: buildDosetteTasks(results[0].rows),
+          metadone: buildMetadoneTasks(results[1].rows, results[2].rows),
+          consegne: buildConsegneTasks(results[3].rows),
+          temperature: buildTemperatureTasks(results[4].rows)
+        };
+
+        renderTaskList('tasks-dosettes', sortTasks(payload.dosettes), 'Nessun task dosettes trovato per la settimana corrente.');
+        renderTaskList('tasks-metadone', sortTasks(payload.metadone), 'Nessun task terapie sostitutive trovato per la settimana corrente.');
+        renderTaskList('tasks-temperature', payload.temperature, 'Nessuna registrazione temperatura disponibile.');
+        renderTaskList('tasks-consegne', payload.consegne, 'Nessuna consegna registrata per oggi.');
+        updateSummary(payload, failed);
+      }).catch(function (error) {
+        console.error('Launcher sync error:', error && error.code || error);
+        syncStatusEl.textContent = 'Impossibile leggere i task reali. Controllare accesso Firebase.';
+      }).finally(function () {
+        state.loadingTasks = false;
+        refreshBtn.disabled = false;
+      });
+    }
+
+    function loadOperatori() {
+      if (!state.firestoreDB) return Promise.resolve([]);
+      return state.firestoreDB.collection('operatori').get().then(function (snapshot) {
+        var loaded = [];
+        snapshot.forEach(function (doc) {
+          var data = doc.data() || {};
+          loaded.push({
+            id: doc.id,
+            nome: data.nome || doc.id,
+            ruolo: data.ruolo || '',
+            pinHash: data.pinHash || '',
+            emailFirebase: data.emailFirebase || ''
+          });
+        });
+        state.operatori = loaded;
+        renderOperatorGrid();
+        return loaded;
+      }).catch(function (error) {
+        console.error('Operatori load failed:', error && error.code || error);
+        opGrid.innerHTML = '<div class="task-empty">Impossibile leggere gli operatori.</div>';
+        setLoginMessage('Impossibile leggere la lista operatori.', true);
+        return [];
+      });
+    }
+
+    function setAuthenticatedOperatorFromSession() {
+      var storedId = sessionStorage.getItem('launcher_operator_id');
+      var currentEmail = firebase.auth().currentUser && firebase.auth().currentUser.email;
+      var found = state.operatori.find(function (op) {
+        return (storedId && op.id === storedId) || (currentEmail && op.emailFirebase === currentEmail);
+      });
+      if (found) state.authenticatedOperator = found;
+      return found;
+    }
+
+    async function sha256(message) {
+      var msgBuffer = new TextEncoder().encode(message);
+      var hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+      return Array.from(new Uint8Array(hashBuffer)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+    }
+
+    function afterAnonymousAuth() {
+      state.authenticatedOperator = null;
+      sessionStorage.removeItem('launcher_operator_id');
+      showLoggedOutState('Seleziona un operatore per leggere i task reali.');
+      setLoginMessage('Seleziona l’operatore e inserisci il PIN per leggere i task reali.', false);
+      pinShell.classList.remove('visible');
+      state.selectedOperator = null;
+      resetPin();
+      pinError.textContent = '';
+      renderOperatorGrid();
+      loadOperatori();
+    }
+
+    function handleAuthStateChanged(user) {
+      if (!user) return;
+      if (user.isAnonymous) {
+        afterAnonymousAuth();
+        return;
+      }
+
+      loadOperatori().then(function () {
+        setAuthenticatedOperatorFromSession();
+        showLoggedInState();
+        loadAllData();
+      });
+    }
+
+    function initFirebase() {
+      try {
+        firebase.initializeApp(firebaseConfig);
+      } catch (e) {
+        if (!/already exists/i.test(String(e && e.message || ''))) throw e;
+      }
+      state.firestoreDB = firebase.firestore();
+
+      firebase.auth().onAuthStateChanged(handleAuthStateChanged);
+
+      if (!state.bootstrapped) {
+        state.bootstrapped = true;
+        firebase.auth().signInAnonymously().catch(function (error) {
+          console.error('Anonymous auth failed:', error && error.code || error);
+          showLoggedOutState('Accesso anonimo non riuscito.');
+          setLoginMessage('Impossibile avviare il bootstrap anonimo Firebase.', true);
+        });
+      }
+    }
+
+    function selectOperator(opId) {
+      var op = state.operatori.find(function (item) { return item.id === opId; });
+      if (!op) return;
+      state.selectedOperator = op;
+      renderOperatorGrid();
+      pinShell.classList.add('visible');
+      pinSelected.textContent = op.nome;
+      pinError.textContent = '';
+      resetPin();
+    }
+
+    function pinPress(digit) {
+      if (!state.selectedOperator || state.pinDigits.length >= 4) return;
+      state.pinDigits += String(digit);
+      pinError.textContent = '';
+      updatePinDots();
+      if (state.pinDigits.length === 4) verifyPin();
+    }
+
+    function pinDel() {
+      state.pinDigits = state.pinDigits.slice(0, -1);
+      pinError.textContent = '';
+      updatePinDots();
+    }
+
+    function verifyPin() {
+      var op = state.selectedOperator;
+      if (!op) return;
+      sha256(state.pinDigits).then(async function (hash) {
+        if (!op.pinHash || hash !== op.pinHash) {
+          pinError.textContent = 'PIN non corretto';
+          resetPin();
+          return;
+        }
+        if (!op.emailFirebase) {
+          pinError.textContent = 'Operatore senza account Firebase';
+          resetPin();
+          return;
+        }
+
+        pinError.textContent = '';
+        loginError.textContent = '';
+        syncStatusEl.textContent = 'Autenticazione operatore in corso...';
+
+        try {
+          await firebase.auth().signOut();
+          await firebase.auth().signInWithEmailAndPassword(op.emailFirebase, hash);
+          sessionStorage.setItem('launcher_operator_id', op.id);
+          state.authenticatedOperator = op;
+          showLoggedInState();
+          loadAllData();
+        } catch (error) {
+          console.warn('Launcher operator auth failed:', error && error.code || error);
+          pinError.textContent = 'Errore auth Firebase';
+          resetPin();
+          await firebase.auth().signInAnonymously().catch(function () {});
+        }
+      });
+    }
+
+    async function logout() {
+      try {
+        await firebase.auth().signOut();
+      } catch (error) {
+        console.warn('Launcher logout error:', error && error.code || error);
+      }
+      state.authenticatedOperator = null;
+      state.selectedOperator = null;
+      sessionStorage.removeItem('launcher_operator_id');
+      pinShell.classList.remove('visible');
+      resetPin();
+      await firebase.auth().signInAnonymously().catch(function (error) {
+        console.warn('Anonymous reauth failed:', error && error.code || error);
+      });
+    }
+
+    window.launcherSelectOperator = selectOperator;
+    window.launcherPinPress = pinPress;
+    window.launcherPinDel = pinDel;
+
+    aggiornaOrologio();
     var ms = (60 - new Date().getSeconds()) * 1000;
-    setTimeout(function () { aggiorna(); setInterval(aggiorna, 60000); }, ms);
+    setTimeout(function () {
+      aggiornaOrologio();
+      setInterval(aggiornaOrologio, 60000);
+    }, ms);
+
+    refreshBtn.addEventListener('click', loadAllData);
+    logoutBtn.addEventListener('click', logout);
+    window.addEventListener('focus', loadAllData);
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) loadAllData();
+    });
+    setInterval(loadAllData, 180000);
+
+    initFirebase();
   })();
 </script>
 
