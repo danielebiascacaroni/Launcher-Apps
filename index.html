@@ -866,6 +866,17 @@
       return result;
     }
 
+    function getNextDateForWeekday(fromDate, weekdayName) {
+      var idx = weekdayMap[normalizeText(weekdayName)];
+      if (typeof idx !== 'number') return null;
+      var start = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate(), 12, 0, 0, 0);
+      var current = start.getDay();
+      var distance = (idx - current + 7) % 7;
+      if (distance === 0) distance = 7;
+      start.setDate(start.getDate() + distance);
+      return start;
+    }
+
     function formatWeekday(date) { return giorni[date.getDay()]; }
     function formatMonthYear(date) { return mesi[date.getMonth()] + ' ' + date.getFullYear(); }
     function formatPatientName(cognome, nome) { return [cognome || '', nome || ''].join(' ').replace(/\s+/g, ' ').trim(); }
@@ -989,60 +1000,126 @@
     }
 
     function buildDosetteTasks(pazienti) {
+      var tasks = [];
       var today = new Date();
-      var weekStart = getWeekStart(today);
-      return safeArray(pazienti).filter(function (patient) {
-        return !patient.stato || patient.stato === 'attivo';
-      }).map(function (patient) {
-        var taskDate = getDateForWeekday(weekStart, patient.giorno);
-        if (!taskDate) return null;
-        var taskKey = toDateKey(taskDate);
-        var related = safeArray(patient.preparazioni).filter(function (prep) {
-          return isDateWithinRange(taskKey, prep.periodoDal, prep.periodoAl)
-            || taskKey === toDateKey(prep.data)
-            || isDateWithinRange(taskKey, prep.data, prep.data);
+      safeArray(pazienti).forEach(function (patient) {
+        if (patient.stato && patient.stato !== 'attivo') return;
+        var realTasks = [];
+        safeArray(patient.preparazioni).forEach(function (prep) {
+          if (!prep || prep.annullata) return;
+          var taskDate = toDate(prep.periodoDal || prep.data || prep.periodoAl);
+          if (!taskDate) return;
+          var status = mapDosetteStatus(prep);
+          realTasks.push({
+            dayOrder: taskDate.getDay() === 0 ? 7 : taskDate.getDay(),
+            dayLabel: patient.giorno || formatWeekday(taskDate),
+            dateLabel: formatTaskDateShort(taskDate),
+            patient: formatPatientName(patient.cognome, patient.nome) || 'Paziente',
+            meta: prep.periodo || ((prep.periodoDal && prep.periodoAl) ? (prep.periodoDal + ' → ' + prep.periodoAl) : 'Preparazione reale in Dosettes'),
+            status: status,
+            sortKey: toDateKey(prep.periodoDal || prep.data || prep.periodoAl),
+            url: buildTaskUrl(appUrls.dosettes, {
+              from: 'launcher',
+              patient: patient.id || '',
+              prep: prep.id || '',
+              task: status.label
+            })
+          });
         });
-        var prep = latestByDate(related, function (item) { return item.periodoDal || item.data; });
-        var status = mapDosetteStatus(prep);
-        return {
-          dayOrder: taskDate.getDay() === 0 ? 7 : taskDate.getDay(),
-          dayLabel: formatWeekday(taskDate),
-          dateLabel: formatTaskDateShort(taskDate),
-          patient: formatPatientName(patient.cognome, patient.nome) || 'Paziente',
-          meta: prep && prep.periodo ? prep.periodo : 'Apri Dosettes e completa il flusso',
-          status: status,
-          url: buildTaskUrl(appUrls.dosettes, { from: 'launcher', patient: patient.id || '', giorno: patient.giorno || '', task: status.label })
-        };
-      }).filter(Boolean);
+        realTasks.forEach(function (task) { tasks.push(task); });
+
+        var hasOpenRealTask = realTasks.some(function (task) {
+          return task.status && !task.status.done;
+        });
+
+        if (!hasOpenRealTask) {
+          var nextDate = getNextDateForWeekday(today, patient.giorno);
+          if (nextDate) {
+            tasks.push({
+              dayOrder: nextDate.getDay() === 0 ? 7 : nextDate.getDay(),
+              dayLabel: patient.giorno || formatWeekday(nextDate),
+              dateLabel: formatTaskDateShort(nextDate),
+              patient: formatPatientName(patient.cognome, patient.nome) || 'Paziente',
+              meta: 'Prossima dispensazione prevista',
+              status: { className: 'status-prepare', label: 'da preparare', done: false },
+              sortKey: toDateKey(nextDate),
+              url: buildTaskUrl(appUrls.dosettes, {
+                from: 'launcher',
+                patient: patient.id || '',
+                giorno: patient.giorno || '',
+                task: 'da preparare'
+              })
+            });
+          }
+        }
+      });
+      return tasks.sort(function (a, b) {
+        return String(b.sortKey || '').localeCompare(String(a.sortKey || ''));
+      });
     }
 
     function buildMetadoneTasks(pazienti, protocolli) {
+      var pazientiById = {};
       var today = new Date();
-      var weekStart = getWeekStart(today);
-      return safeArray(pazienti).filter(function (patient) {
-        return !patient.statoTerapia || patient.statoTerapia === 'attiva';
-      }).map(function (patient) {
-        var taskDate = getDateForWeekday(weekStart, patient.giornoConsegna);
+      safeArray(pazienti).forEach(function (patient) {
+        pazientiById[patient.id] = patient;
+      });
+
+      var tasks = safeArray(protocolli).filter(function (protocollo) {
+        return protocollo && String(protocollo.stato || '').toLowerCase() !== 'annullato' && protocollo._deleted !== true;
+      }).map(function (protocollo) {
+        var patient = pazientiById[protocollo.pazienteId] || {};
+        var taskDate = toDate(protocollo.periodoDal || protocollo.dataPreprazione || protocollo.periodoAl);
         if (!taskDate) return null;
-        var taskKey = toDateKey(taskDate);
-        var related = safeArray(protocolli).filter(function (protocollo) {
-          if (protocollo.pazienteId !== patient.id) return false;
-          if (String(protocollo.stato || '').toLowerCase() === 'annullato') return false;
-          if (safeArray(protocollo.giorniCoperti).indexOf(taskKey) !== -1) return true;
-          return isDateWithinRange(taskKey, protocollo.periodoDal, protocollo.periodoAl);
-        });
-        var protocollo = latestByDate(related, function (item) { return item.periodoDal || item.dataPreprazione; });
         var status = mapMetadoneStatus(protocollo);
         return {
           dayOrder: taskDate.getDay() === 0 ? 7 : taskDate.getDay(),
-          dayLabel: formatWeekday(taskDate),
+          dayLabel: patient.giornoConsegna || formatWeekday(taskDate),
           dateLabel: formatTaskDateShort(taskDate),
-          patient: formatPatientName(patient.cognome, patient.nome) || 'Paziente',
-          meta: protocollo && protocollo.periodoDal && protocollo.periodoAl ? protocollo.periodoDal + ' → ' + protocollo.periodoAl : 'Apri Terapie Sostitutive e completa il flusso',
+          patient: formatPatientName(patient.cognome, patient.nome) || protocollo.pazienteId || 'Paziente',
+          meta: protocollo.periodoDal && protocollo.periodoAl ? protocollo.periodoDal + ' → ' + protocollo.periodoAl : 'Protocollo reale in Terapie Sostitutive',
           status: status,
-          url: buildTaskUrl(appUrls.metadone, { from: 'launcher', patient: patient.id || '', giorno: patient.giornoConsegna || '', task: status.label })
+          sortKey: toDateKey(protocollo.periodoDal || protocollo.dataPreprazione || protocollo.periodoAl),
+          url: buildTaskUrl(appUrls.metadone, {
+            from: 'launcher',
+            patient: protocollo.pazienteId || '',
+            protocollo: protocollo.id || protocollo._id || '',
+            task: status.label
+          })
         };
       }).filter(Boolean);
+
+      safeArray(pazienti).forEach(function (patient) {
+        if (patient.statoTerapia && patient.statoTerapia !== 'attiva') return;
+        var hasOpenRealTask = tasks.some(function (task) {
+          return task.patient === (formatPatientName(patient.cognome, patient.nome) || patient.id || 'Paziente')
+            && task.status && !task.status.done;
+        });
+        if (!hasOpenRealTask) {
+          var nextDate = getNextDateForWeekday(today, patient.giornoConsegna);
+          if (nextDate) {
+            tasks.push({
+              dayOrder: nextDate.getDay() === 0 ? 7 : nextDate.getDay(),
+              dayLabel: patient.giornoConsegna || formatWeekday(nextDate),
+              dateLabel: formatTaskDateShort(nextDate),
+              patient: formatPatientName(patient.cognome, patient.nome) || patient.id || 'Paziente',
+              meta: 'Prossima dispensazione prevista',
+              status: { className: 'status-prepare', label: 'da preparare', done: false },
+              sortKey: toDateKey(nextDate),
+              url: buildTaskUrl(appUrls.metadone, {
+                from: 'launcher',
+                patient: patient.id || '',
+                giorno: patient.giornoConsegna || '',
+                task: 'da preparare'
+              })
+            });
+          }
+        }
+      });
+
+      return tasks.sort(function (a, b) {
+        return String(b.sortKey || '').localeCompare(String(a.sortKey || ''));
+      });
     }
 
     function buildTemperatureTasks(records) {
