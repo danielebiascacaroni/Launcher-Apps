@@ -779,6 +779,8 @@
       loadingTasks: false
     };
 
+    var _faBroadcast = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel('fa_operator_sync') : null;
+
     var syncStatusEl = document.getElementById('sync-status');
     var refreshBtn = document.getElementById('refresh-btn');
     var unlockIpadBtn = document.getElementById('unlock-ipad-btn');
@@ -1452,6 +1454,7 @@
           await firebase.auth().signInWithEmailAndPassword(op.emailFirebase, hash);
           sessionStorage.setItem('launcher_operator_id', op.id);
           state.authenticatedOperator = op;
+          if (_faBroadcast) _faBroadcast.postMessage({ type: 'operator_changed' });
           showLoggedInState();
           loadAllData();
         } catch (error) {
@@ -1464,6 +1467,7 @@
     }
 
     async function logout() {
+      if (_faBroadcast) _faBroadcast.postMessage({ type: 'logout' });
       try {
         await firebase.auth().signOut();
       } catch (error) {
